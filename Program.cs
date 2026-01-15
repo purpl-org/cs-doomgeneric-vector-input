@@ -12,6 +12,7 @@ class Program
     static TcpClient tcpClient;
     static NetworkStream tcpStream;
     static UdpClient udpClient;
+    static bool tcpConnected = false;
 
     static byte MapKey(SDL.SDL_Keycode key)
     {
@@ -38,11 +39,11 @@ class Program
     {
         try
         {
-            if (useTcp)
+            if (useTcp && tcpConnected)
             {
                 tcpStream.Write(packet, 0, packet.Length);
             }
-            else
+            else if (!useTcp)
             {
                 udpClient.Send(packet, packet.Length);
             }
@@ -64,10 +65,21 @@ class Program
 
         if (useTcp)
         {
-            tcpClient = new TcpClient();
-            tcpClient.Connect(serverIp, SERVER_PORT);
-            tcpStream = tcpClient.GetStream();
-            Console.WriteLine($"TCP connected to {serverIp}:{SERVER_PORT}");
+            new Thread(() =>
+            {
+                try
+                {
+                    tcpClient = new TcpClient();
+                    tcpClient.Connect(serverIp, SERVER_PORT);
+                    tcpStream = tcpClient.GetStream();
+                    tcpConnected = true;
+                    Console.WriteLine($"TCP connected to {serverIp}:{SERVER_PORT}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"TCP connection failed: {ex.Message}");
+                }
+            }).Start();
         }
         else
         {
@@ -123,8 +135,8 @@ class Program
             SDL.SDL_Delay(1);
         }
 
-        if (useTcp) tcpStream.Close();
-        if (useTcp) tcpClient.Close();
+        if (useTcp && tcpConnected) tcpStream.Close();
+        if (useTcp && tcpConnected) tcpClient.Close();
         if (!useTcp) udpClient.Close();
 
         SDL.SDL_DestroyRenderer(renderer);
